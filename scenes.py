@@ -19,9 +19,6 @@ class MainScene(Scene):
 
 class MapCursor(GameObject):
 
-    SPRITE_WIDTH=24
-    SPRITE_HEIGHT=32
-
     def __init__(self,mapData, x=0,y=0):
         GameObject.__init__(self)
         self.process_input=True 
@@ -63,6 +60,6 @@ class Enano(Actor):
         Actor.__init__(self)
         self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
         self.text2 = Text("Roberto Rivas Taxista")
-        #self.text2.moveSprite(self.x-int(self.text2.rect.width/2),self.y-16)
+        self.text2.moveSprite(self.x-int(self.text2.rect.width/2),self.y-16)
         self.add("name",self.text2,self.x-int(self.text2.rect.width/2),self.y-16)
 

@@ -6,7 +6,9 @@ import pytmx
 from pytmx.util_pygame import load_pygame
 import math
 
-#Funciones helper para tratar con sprites
+""" 
+    Helper functions for image loading.
+"""
 class SpriteUtils:
     #Helper function de carga
     @staticmethod
@@ -43,7 +45,21 @@ class SpriteUtils:
                 line.append(image.subsurface(rect))
         return tile_table
 
-#Basic GameObject structure.
+""" 
+    Basic event specification class.
+"""
+class Event():
+    def __init__(self,name,target=[],parameters=[]):
+        self.name=name;
+        self.target=target
+        self.parameters=parameters
+
+""" 
+    Basic GameObject structure.
+    -Support for tree-like GameObject hierarchy
+    -Overridable input processing and logic updating methods.
+    -Support for event firing and handling along its hierarchy.
+"""
 class GameObject(pygame.sprite.DirtySprite):
     
     def __init__(self,x=0,y=0):
@@ -126,6 +142,26 @@ class GameObject(pygame.sprite.DirtySprite):
     def update(self,delta):
         pass
 
+    def fireEvent(self,event):
+        scene=self.getScene()
+        if scene:
+            scene.sendEvent(event)
+
+    def sendEvent(self,event):
+        if not event.target:
+            self.handleEvent(event)
+            for name, child in self.children.iteritems():
+                child.sendEvent(event)
+        else:
+            current_target=self.children[event.target[0]]
+            if current_target:
+                    event.target.pop(0)
+                    current_target.sendEvent(event)
+
+    #Meant to ve overriden by inheriting classes for specific event handling
+    def handleEvent(self,event):
+        pass
+
 
 
 """Basic Scene structure; contains methods for drawing, updating and input handling."""
@@ -153,8 +189,6 @@ class Scene(GameObject):
         for name, child in self.children.iteritems():
             child.draw(screen) 
         pygame.display.flip()
-               
-        
 
     def switchToScene(self, next_scene):
         self.next = next_scene
@@ -176,9 +210,10 @@ class Tilemap(GameObject):
         self.width=self.data.width
         self.height=self.data.height
         for idx, idy, image in self.data.layers[0].tiles():
-                tile = pygame.sprite.Sprite()
+                tile = GameObject()
                 tile.image=image.convert()
                 tile.rect=pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight)
+                self.add("x"+str(idx)+"y"+str(idy)+"z"+str(0),tile)
                 self.spriteGroup.add(tile) #Agregar al grupo
 
     #Returns property/value dict of specified tile
@@ -292,6 +327,7 @@ class Actor(GameObject):
                 self.moveSprite(step['x']*config.SPRITE_WIDTH,step['y']*config.SPRITE_HEIGHT)
                 self.pos_x=step['x']
                 self.pos_y=step['y']
+                self.fireEvent(Event("step over",["map","x"+str(step['x'])+"y"+str(step['y'])+"z0"],{}))
             else:
                 self.last_move_time+=delta
 
