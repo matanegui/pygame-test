@@ -15,6 +15,7 @@ class PyGame:
 	def __init__(self):
 		#Pygame init
 		pygame.init()
+		os.environ['SDL_VIDEO_WINDOW_POS'] = str(500) + "," + str(200)
 		self.screen = pygame.display.set_mode((960,540))
 		self.currentScene=MainScene(self.screen)
 

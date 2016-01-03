@@ -11,8 +11,8 @@ class MainScene(Scene):
         self.map.loadTMXMap("data/map.tmx")
         self.add("map",self.map)
         #Enano
-        self.enano=GameObjectFactory.getGameObject("Enano Pijudo","Enano")
-        self.add("enano",self.enano)
+        self.enano=PlayableCharacter()
+        self.add("pc",self.enano)
         #Selector
         self.selector=MapCursor(self.map)
         self.add("selector",self.selector)
@@ -51,15 +51,21 @@ class MapCursor(Sprite):
                 self.moveSprite(self.map_x*config.SPRITE_WIDTH,self.map_y*config.SPRITE_HEIGHT)
                 self.switchEnabled(self.mapData.getTileProperty(self.map_x, self.map_y,'solid'))  
         if event.type == pygame.MOUSEBUTTONUP and self.enabled:
-            move_event=self.fireEvent({"name":"Move To Cell","target":["enano"],"map_x": self.map_x, "map_y":self.map_y , "mapData":self.mapData})
+            move_event=self.fireEvent({"name":"Move To Cell","target":["pc"],"map_x": self.map_x, "map_y":self.map_y , "mapData":self.mapData})
             if not move_event['response']:
                 self.changeImage(self.images['cross'])
 
-class Enano(Actor):
+class PlayableCharacter(Actor):
     def __init__(self,x=0,y=0):
         Actor.__init__(self)
         self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
-        self.text2 = Text("Roberto Rivas Taxista")
-        self.text2.moveSprite(self.x-int(self.text2.rect.width/2),self.y-16)
-        self.add("name",self.text2,self.x-int(self.text2.rect.width/2),self.y-16)
+
+        self.text2 = Text("Rolando Rivas Taxista",rgb=(255,255,255))
+        self.add("name",self.text2,self.x-int(self.text2.rect.width/2)+int(self.rect.width/2),self.y-20)
+
+    def handleEvent(self,event):
+        if (event['name']=="Move To Cell"):
+            move_able=self.moveTo(event['map_x'], event['map_y'], event['mapData'])
+            event['response']=move_able
+            return event
 

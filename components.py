@@ -1,6 +1,6 @@
 from engine.engine import *
 
-class Enano(Actor):
+class PlayableCharacter(Actor):
     def __init__(self,x=0,y=0):
         Actor.__init__(self)
         self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)

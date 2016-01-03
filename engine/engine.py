@@ -45,6 +45,34 @@ class SpriteUtils:
                 line.append(image.subsurface(rect))
         return tile_table
 
+    @staticmethod
+    def textHollow(font, message, fontcolor):
+        notcolor = [c^0xFF for c in fontcolor]
+        base = font.render(message, 0, fontcolor, notcolor)
+        size = base.get_width() + 2, base.get_height() + 2
+        img = pygame.Surface(size, 16)
+        img.fill(notcolor)
+        base.set_colorkey(0)
+        img.blit(base, (0, 0))
+        img.blit(base, (2, 0))
+        img.blit(base, (0, 2))
+        img.blit(base, (2, 2))
+        base.set_colorkey(0)
+        base.set_palette_at(1, notcolor)
+        img.blit(base, (1, 1))
+        img.set_colorkey(notcolor)
+        return img
+
+    @staticmethod
+    def textOutline(font, message, fontcolor, outlinecolor):
+        base = font.render(message, 0, fontcolor)
+        outline = SpriteUtils.textHollow(font, message, outlinecolor)
+        img = pygame.Surface(outline.get_size(), 16)
+        img.blit(base, (1, 1))
+        img.blit(outline, (0, 0))
+        img.set_colorkey(0)
+        return img
+
 """ 
     Basic event specification class.
 """
@@ -136,9 +164,11 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.y=y
     
     def add(self, ID, component, offset_x=0, offset_y=0):
-        component.offset_x=offset_x
-        component.offset_y=offset_y
-        self.components[ID]=component;
+        if (offset_x!=0 or offset_y!=0):
+            component.offset_x=offset_x
+            component.offset_y=offset_y
+            component.moveSprite(offset_x,offset_y)
+        self.components[ID]=component
         self.components[ID].parent=self
         
     def loadImage(self,path):
@@ -398,12 +428,16 @@ class Text(Sprite):
     
     def __init__(self,text,x=0,y=0,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255)):
         Sprite.__init__(self,x,y)
+        #texto a renderizar
         self.font = pygame.font.Font(font, size)
-        self.text = self.font.render(text, True, rgb)
+        self.font.set_bold(True)
+        self.text=SpriteUtils.textOutline(self.font, text, rgb, (1,1,1))
+        #self.text = self.font.render(text, True, rgb)
         self.image = self.text
         self.rect=self.image.get_rect()
         self.rect.x=x
         self.rect.y=y
-        self.spriteGroup=pygame.sprite.RenderPlain(self)
+        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+
 
 
