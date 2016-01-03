@@ -49,7 +49,7 @@ class SpriteUtils:
     Basic event specification class.
 """
 class Event():
-    def __init__(self,name,target=[],parameters=[]):
+    def __init__(self,name,target=[],parameters={}):
         self.name=name;
         self.target=target
         self.parameters=parameters
@@ -64,19 +64,20 @@ class GameObject():
     
     def __init__(self,x=0,y=0):
         self.spriteGroup = None 
-        self.children = {}
+        self.components = {}
+        self.attributes={}
         self.parent = None
         self.process_input=False
         self.process_update=False
     
-    def add(self, name, child, offset_x=0, offset_y=0):
-        child.offset_x=offset_x
-        child.offset_y=offset_y
-        self.children[name]=child;
-        self.children[name].parent=self
+    def add(self, ID, component, offset_x=0, offset_y=0):
+        component.offset_x=offset_x
+        component.offset_y=offset_y
+        self.components[ID]=component;
+        self.components[ID].parent=self
 
-    def getChild(self,name):
-        return self.children[name]
+    def getComponent(self,ID):
+        return self.components[ID]
 
     def getParent(self):
         return self.parent
@@ -99,22 +100,26 @@ class GameObject():
     def fireEvent(self,event):
         scene=self.getScene()
         if scene:
-            scene.sendEvent(event)
+            event=scene.sendEvent(event)
+        return event
+            
 
     def sendEvent(self,event):
-        if not event.target:
-            self.handleEvent(event)
-            for name, child in self.children.iteritems():
-                child.sendEvent(event)
+        #no target means this is the wanted Game Object
+        if not event['target']:
+            for ID, component in self.components.iteritems():
+                event=component.sendEvent(event)
+            event=self.handleEvent(event)     
         else:
-            current_target=self.children[event.target[0]]
+            current_target=self.components[event['target'][0]]
             if current_target:
-                    event.target.pop(0)
-                    current_target.sendEvent(event)
+                    event['target'].pop(0)
+                    event=current_target.sendEvent(event)
+        return event
 
     #Meant to ve overriden by inheriting classes for specific event handling
     def handleEvent(self,event):
-        pass
+        return event
 
 """ 
     A Sprite class; extends Game Object and pygame DirtySprite, adding drawing capabilities to the basic GO.
@@ -130,23 +135,11 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.x=x
         self.y=y
     
-    def add(self, name, child, offset_x=0, offset_y=0):
-        child.offset_x=offset_x
-        child.offset_y=offset_y
-        self.children[name]=child;
-        self.children[name].parent=self
-
-    def getChild(self,name):
-        return self.children[name]
-
-    def getParent(self):
-        return self.parent
-
-    def getScene(self):
-        if self.parent is None:
-            return self
-        else:
-            return self.parent.getScene()
+    def add(self, ID, component, offset_x=0, offset_y=0):
+        component.offset_x=offset_x
+        component.offset_y=offset_y
+        self.components[ID]=component;
+        self.components[ID].parent=self
         
     def loadImage(self,path):
         self.image = SpriteUtils.loadImage(path)
@@ -174,8 +167,8 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.rect.x=x
         self.rect.y=y
         self.dirty=1
-        for name, child in self.children.iteritems():
-            child.moveSprite(child.offset_x+x,child.offset_y+y)
+        for ID, component in self.components.iteritems():
+            component.moveSprite(component.offset_x+x,component.offset_y+y)
 
     def moveSpriteRelative(self,x,y):
         self.x+=int(x)
@@ -183,14 +176,45 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.rect.x+=int(x)
         self.rect.y+=int(y)     
         self.dirty=1
-        for name, child in self.children.iteritems():
-            child.moveSpriteRelative(x,y)
+        for ID, component in self.components.iteritems():
+            component.moveSpriteRelative(x,y)
 
     def draw(self, screen):
         if (self.spriteGroup is not None):
             changed=self.spriteGroup.draw(screen)
-        for name, child in self.children.iteritems():
-            child.draw(screen)
+        for ID, component in self.components.iteritems():
+            component.draw(screen)
+
+"""
+Game Object factory; searches both instanced components and XML archives for the searched component.
+"""
+class GameObjectFactory():
+
+    def __init__():
+        pass
+
+    #Get coded class by name
+    @staticmethod
+    def getClass(classname):
+        for path in config.COMPONENT_MODULES:
+            parts = path.split('.')
+            module = ".".join(parts[:-1])
+            m = __import__( module )
+            for comp in parts[1:]:
+                try:
+                    m = getattr(m, classname)
+                    return m
+                except AttributeError:
+                    pass          
+
+    #Instantiate class with extending parameter
+    @staticmethod
+    def getGameObject(classname,base_class='GameObject',args={}):
+       ParentClass=GameObjectFactory.getClass(base_class)
+       Class=type(classname, (ParentClass,), args)
+       return Class()
+
+
 
 """Basic Scene structure; contains methods for drawing, updating and input handling."""
 class Scene(GameObject):
@@ -202,20 +226,20 @@ class Scene(GameObject):
         self.dirties=[]
     
     def processInput(self, event):
-        for name, child in self.children.iteritems():
-            if child.process_input:
-                child.processInput(event)
+        for ID, component in self.components.iteritems():
+            if component.process_input:
+                component.processInput(event)
 
     def update(self,delta):
-        for name, child in self.children.iteritems():
-            if child.process_update:
-                child.update(delta)
+        for ID, component in self.components.iteritems():
+            if component.process_update:
+                component.update(delta)
 
     def draw(self, screen):
-        #Default: children render
+        #Default: components render
         screen.blit(self.background, (0,0))
-        for name, child in self.children.iteritems():
-            child.draw(screen) 
+        for ID, component in self.components.iteritems():
+            component.draw(screen) 
         pygame.display.flip()
 
     def switchToScene(self, next_scene):
@@ -355,7 +379,7 @@ class Actor(Sprite):
                 self.moveSprite(step['x']*config.SPRITE_WIDTH,step['y']*config.SPRITE_HEIGHT)
                 self.pos_x=step['x']
                 self.pos_y=step['y']
-                self.fireEvent(Event("step over",["map","x"+str(step['x'])+"y"+str(step['y'])+"z0"],{}))
+                self.fireEvent({"name": "Step Over", "target": ["map","x"+str(step['x'])+"y"+str(step['y'])+"z0"]})
             else:
                 self.last_move_time+=delta
 

@@ -11,7 +11,7 @@ class MainScene(Scene):
         self.map.loadTMXMap("data/map.tmx")
         self.add("map",self.map)
         #Enano
-        self.enano = Enano()
+        self.enano=GameObjectFactory.getGameObject("Enano Pijudo","Enano")
         self.add("enano",self.enano)
         #Selector
         self.selector=MapCursor(self.map)
@@ -51,8 +51,8 @@ class MapCursor(Sprite):
                 self.moveSprite(self.map_x*config.SPRITE_WIDTH,self.map_y*config.SPRITE_HEIGHT)
                 self.switchEnabled(self.mapData.getTileProperty(self.map_x, self.map_y,'solid'))  
         if event.type == pygame.MOUSEBUTTONUP and self.enabled:
-            move_able=self.getParent().getChild("enano").moveTo(self.map_x, self.map_y, self.mapData)
-            if not move_able:
+            move_event=self.fireEvent({"name":"Move To Cell","target":["enano"],"map_x": self.map_x, "map_y":self.map_y , "mapData":self.mapData})
+            if not move_event['response']:
                 self.changeImage(self.images['cross'])
 
 class Enano(Actor):
