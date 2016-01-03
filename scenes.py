@@ -17,10 +17,10 @@ class MainScene(Scene):
         self.selector=MapCursor(self.map)
         self.add("selector",self.selector)
 
-class MapCursor(GameObject):
+class MapCursor(Sprite):
 
     def __init__(self,mapData, x=0,y=0):
-        GameObject.__init__(self)
+        Sprite.__init__(self)
         self.process_input=True 
         self.images={}
         self.images['red']=SpriteUtils.loadImage("selector.png")

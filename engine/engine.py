@@ -60,15 +60,71 @@ class Event():
     -Overridable input processing and logic updating methods.
     -Support for event firing and handling along its hierarchy.
 """
-class GameObject(pygame.sprite.DirtySprite):
+class GameObject():
     
     def __init__(self,x=0,y=0):
-        pygame.sprite.Sprite.__init__(self)
         self.spriteGroup = None 
         self.children = {}
         self.parent = None
         self.process_input=False
         self.process_update=False
+    
+    def add(self, name, child, offset_x=0, offset_y=0):
+        child.offset_x=offset_x
+        child.offset_y=offset_y
+        self.children[name]=child;
+        self.children[name].parent=self
+
+    def getChild(self,name):
+        return self.children[name]
+
+    def getParent(self):
+        return self.parent
+
+    def getScene(self):
+        if self.parent is None:
+            return self
+        else:
+            return self.parent.getScene()
+
+    def processInput(self, event):
+        pass
+
+    def update(self,delta):
+        pass
+
+    def draw(self):
+        pass
+
+    def fireEvent(self,event):
+        scene=self.getScene()
+        if scene:
+            scene.sendEvent(event)
+
+    def sendEvent(self,event):
+        if not event.target:
+            self.handleEvent(event)
+            for name, child in self.children.iteritems():
+                child.sendEvent(event)
+        else:
+            current_target=self.children[event.target[0]]
+            if current_target:
+                    event.target.pop(0)
+                    current_target.sendEvent(event)
+
+    #Meant to ve overriden by inheriting classes for specific event handling
+    def handleEvent(self,event):
+        pass
+
+""" 
+    A Sprite class; extends Game Object and pygame DirtySprite, adding drawing capabilities to the basic GO.
+"""
+class Sprite(GameObject,pygame.sprite.DirtySprite):
+    
+    def __init__(self,x=0,y=0):
+        pygame.sprite.Sprite.__init__(self)
+        GameObject.__init__(self)
+        self.spriteGroup = None 
         self.offset_x=0
         self.offset_y=0
         self.x=x
@@ -131,38 +187,10 @@ class GameObject(pygame.sprite.DirtySprite):
             child.moveSpriteRelative(x,y)
 
     def draw(self, screen):
-    	if (self.spriteGroup is not None):
-    		changed=self.spriteGroup.draw(screen)
+        if (self.spriteGroup is not None):
+            changed=self.spriteGroup.draw(screen)
         for name, child in self.children.iteritems():
             child.draw(screen)
-
-    def processInput(self, event):
-        pass
-
-    def update(self,delta):
-        pass
-
-    def fireEvent(self,event):
-        scene=self.getScene()
-        if scene:
-            scene.sendEvent(event)
-
-    def sendEvent(self,event):
-        if not event.target:
-            self.handleEvent(event)
-            for name, child in self.children.iteritems():
-                child.sendEvent(event)
-        else:
-            current_target=self.children[event.target[0]]
-            if current_target:
-                    event.target.pop(0)
-                    current_target.sendEvent(event)
-
-    #Meant to ve overriden by inheriting classes for specific event handling
-    def handleEvent(self,event):
-        pass
-
-
 
 """Basic Scene structure; contains methods for drawing, updating and input handling."""
 class Scene(GameObject):
@@ -194,10 +222,10 @@ class Scene(GameObject):
         self.next = next_scene
 
 """Basic tilemap, TMX loaded, pytmx powered"""
-class Tilemap(GameObject):
+class Tilemap(Sprite):
 
     def __init__(self):
-        GameObject.__init__(self)
+        Sprite.__init__(self)
         self.spriteGroup = pygame.sprite.Group()
         self.data = None
         self.width=0
@@ -210,7 +238,7 @@ class Tilemap(GameObject):
         self.width=self.data.width
         self.height=self.data.height
         for idx, idy, image in self.data.layers[0].tiles():
-                tile = GameObject()
+                tile = Sprite()
                 tile.image=image.convert()
                 tile.rect=pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight)
                 self.add("x"+str(idx)+"y"+str(idy)+"z"+str(0),tile)
@@ -307,10 +335,10 @@ class Tilemap(GameObject):
         return path
 
 """Actor; a game entity with attributes and moving and interactions capabilities"""
-class Actor(GameObject):
+class Actor(Sprite):
     
     def __init__(self):
-        GameObject.__init__(self)
+        Sprite.__init__(self)
         self.process_input=False
         self.process_update=True
         self.pos_x=0;
@@ -342,10 +370,10 @@ class Actor(GameObject):
             return False
 
 """A class for the instancing and rendering of text"""
-class Text(GameObject):
+class Text(Sprite):
     
     def __init__(self,text,x=0,y=0,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255)):
-        GameObject.__init__(self,x,y)
+        Sprite.__init__(self,x,y)
         self.font = pygame.font.Font(font, size)
         self.text = self.font.render(text, True, rgb)
         self.image = self.text
