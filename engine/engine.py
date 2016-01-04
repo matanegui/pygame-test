@@ -97,6 +97,8 @@ class GameObject():
         self.parent = None
         self.process_input=False
         self.process_update=False
+        self.process_events=False
+        self.eventHandlers={}
     
     def add(self, ID, component, offset_x=0, offset_y=0):
         component.offset_x=offset_x
@@ -147,6 +149,10 @@ class GameObject():
 
     #Meant to ve overriden by inheriting classes for specific event handling
     def handleEvent(self,event):
+        if (self.process_events):
+            for eventName, handler in self.eventHandlers.iteritems():
+                if (event['name']==eventName):
+                    event=handler(event)
         return event
 
 """ 
@@ -176,6 +182,12 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.rect=self.image.get_rect()
         self.rect.x=self.x
         self.rect.y=self.y
+        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+
+    #Render using given image and rect
+    def renderImage(self,image,rect):
+        self.image = image
+        self.rect=rect
         self.spriteGroup=pygame.sprite.RenderUpdates(self)
 
     def changeImage(self,image):
@@ -252,7 +264,7 @@ class Scene(GameObject):
         GameObject.__init__(self)
         self.background = pygame.Surface(screen.get_size())
         self.background = self.background.convert()
-        self.background.fill((0,0,0))
+        self.background.fill((39,40,34))
         self.dirties=[]
     
     def processInput(self, event):
@@ -275,12 +287,17 @@ class Scene(GameObject):
     def switchToScene(self, next_scene):
         self.next = next_scene
 
+"""Basic tile object"""
+class Tile(Sprite):
+    def __init__(self):
+        Sprite.__init__(self)
+
 """Basic tilemap, TMX loaded, pytmx powered"""
 class Tilemap(Sprite):
 
     def __init__(self):
         Sprite.__init__(self)
-        self.spriteGroup = pygame.sprite.Group()
+        self.tileOrder=[]
         self.data = None
         self.width=0
         self.height=0
@@ -291,12 +308,15 @@ class Tilemap(Sprite):
         #definir mapita
         self.width=self.data.width
         self.height=self.data.height
-        for idx, idy, image in self.data.layers[0].tiles():
-                tile = Sprite()
-                tile.image=image.convert()
-                tile.rect=pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight)
-                self.add("x"+str(idx)+"y"+str(idy)+"z"+str(0),tile)
-                self.spriteGroup.add(tile) #Agregar al grupo
+        layersAmount=len(self.data.layers)
+        for idz in range(layersAmount):
+            for idx, idy, image in self.data.layers[idz].tiles():
+                    tile = Tile()
+                    tile.renderImage(image.convert(),pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight))
+                    tileID="x"+str(idx)+"y"+str(idy)+"z"+str(idz)
+                    self.tileOrder.append(tileID)
+                    self.add(tileID,tile)
+                    #self.spriteGroup.add(tile) #Agregar al grupo
 
     #Returns property/value dict of specified tile
     def getTileProperties(self,x,y,z=0):
@@ -388,6 +408,10 @@ class Tilemap(Sprite):
         path.pop(0)
         return path
 
+    def draw(self,screen):
+        for ID in self.tileOrder:
+            self.components[ID].draw(screen)  
+
 """Actor; a game entity with attributes and moving and interactions capabilities"""
 class Actor(Sprite):
     
@@ -397,6 +421,7 @@ class Actor(Sprite):
         self.process_update=True
         self.pos_x=0;
         self.pos_y=0;
+        self.pos_z=1
         self.last_move_time=0.0
         self.speed=0.05  #Step delay
         self.path=[]
