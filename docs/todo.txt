@@ -1,0 +1,2 @@
+- Implementar dirty rect animation
+- Integrar glyph

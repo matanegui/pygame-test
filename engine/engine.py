@@ -91,9 +91,9 @@ class Event():
 class GameObject():
     
     def __init__(self,x=0,y=0):
-        self.spriteGroup = None 
         self.components = {}
         self.attributes={}
+        self.spriteGroup = None
         self.parent = None
         self.process_input=False
         self.process_update=False
@@ -161,9 +161,9 @@ class GameObject():
 class Sprite(GameObject,pygame.sprite.DirtySprite):
     
     def __init__(self,x=0,y=0):
-        pygame.sprite.Sprite.__init__(self)
+        pygame.sprite.DirtySprite.__init__(self)
+         
         GameObject.__init__(self)
-        self.spriteGroup = None 
         self.offset_x=0
         self.offset_y=0
         self.x=x
@@ -174,6 +174,12 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
             component.offset_x=offset_x
             component.offset_y=offset_y
             component.moveSprite(offset_x,offset_y)
+        for sprite in component.spriteGroup.sprites():
+            if self.spriteGroup:    
+                self.spriteGroup.add(sprite)
+            else:
+                self.spriteGroup=pygame.sprite.LayeredDirty(sprite)
+            component.spriteGroup.remove(sprite)
         self.components[ID]=component
         self.components[ID].parent=self
         
@@ -182,26 +188,29 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.rect=self.image.get_rect()
         self.rect.x=self.x
         self.rect.y=self.y
-        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
     #Render using given image and rect
     def renderImage(self,image,rect):
         self.image = image
+        colorkey = image.get_at((0,0))
+        if (tuple(colorkey))==(0,0,0,255):
+            image.set_colorkey(colorkey, RLEACCEL)
         self.rect=rect
-        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
     def changeImage(self,image):
         self.image = image
         self.rect=self.image.get_rect()
         self.rect.x=self.x
         self.rect.y=self.y
-        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
     def loadImageFromSheet(self,path,sheet_x,sheet_y,width,height):
         tiles=SpriteUtils.loadSpriteSheet(path,width, height)
         self.image=(tiles[sheet_x][sheet_y])
         self.rect=pygame.Rect(self.x*width,self.y*height,width,height)
-        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
     def moveSprite(self,x,y):
         self.x=x
@@ -223,7 +232,7 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
 
     def draw(self, screen):
         if (self.spriteGroup is not None):
-            changed=self.spriteGroup.draw(screen)
+            self.spriteGroup.draw(screen)
         for ID, component in self.components.iteritems():
             component.draw(screen)
 
@@ -259,7 +268,7 @@ class GameObjectFactory():
 
 
 """Basic Scene structure; contains methods for drawing, updating and input handling."""
-class Scene(GameObject):
+class Scene(Sprite):
     def __init__(self,screen):
         GameObject.__init__(self)
         self.background = pygame.Surface(screen.get_size())
@@ -279,10 +288,9 @@ class Scene(GameObject):
 
     def draw(self, screen):
         #Default: components render
-        screen.blit(self.background, (0,0))
-        for ID, component in self.components.iteritems():
-            component.draw(screen) 
-        pygame.display.flip()
+        self.spriteGroup.clear(screen,self.background)
+        rects=self.spriteGroup.draw(screen) 
+        pygame.display.update(rects)
 
     def switchToScene(self, next_scene):
         self.next = next_scene
@@ -316,7 +324,6 @@ class Tilemap(Sprite):
                     tileID="x"+str(idx)+"y"+str(idy)+"z"+str(idz)
                     self.tileOrder.append(tileID)
                     self.add(tileID,tile)
-                    #self.spriteGroup.add(tile) #Agregar al grupo
 
     #Returns property/value dict of specified tile
     def getTileProperties(self,x,y,z=0):
@@ -344,21 +351,21 @@ class Tilemap(Sprite):
     #Gets valid neighbor position for a certain tile
     def getNeighbors(self,map_x,map_y,movement_check=False):
         neighbors=[]
-        if self.isValidTile(map_x-1,map_y) and (not movement_check or self.getTileProperty(map_x-1,map_y,'solid')!='true'):
+        if self.isValidTile(map_x-1,map_y) and (not movement_check or self.getTileProperty(map_x-1,map_y,'solid',1)!='true'):
             neighbors.append({'x':map_x-1,'y':map_y})
-        if self.isValidTile(map_x-1,map_y-1) and (not movement_check or self.getTileProperty(map_x-1,map_y-1,'solid')!='true'):
+        if self.isValidTile(map_x-1,map_y-1) and (not movement_check or self.getTileProperty(map_x-1,map_y-1,'solid',1)!='true'):
             neighbors.append({'x':map_x-1,'y':map_y-1})
-        if self.isValidTile(map_x,map_y-1) and (not movement_check or self.getTileProperty(map_x,map_y-1,'solid')!='true'):
+        if self.isValidTile(map_x,map_y-1) and (not movement_check or self.getTileProperty(map_x,map_y-1,'solid',1)!='true'):
             neighbors.append({'x':map_x,'y':map_y-1})
-        if self.isValidTile(map_x+1,map_y-1) and (not movement_check or self.getTileProperty(map_x+1,map_y-1,'solid')!='true'):
+        if self.isValidTile(map_x+1,map_y-1) and (not movement_check or self.getTileProperty(map_x+1,map_y-1,'solid',1)!='true'):
             neighbors.append({'x':map_x+1,'y':map_y-1})
-        if self.isValidTile(map_x+1,map_y) and (not movement_check or self.getTileProperty(map_x+1,map_y,'solid')!='true'):
+        if self.isValidTile(map_x+1,map_y) and (not movement_check or self.getTileProperty(map_x+1,map_y,'solid',1)!='true'):
             neighbors.append({'x':map_x+1,'y':map_y})
-        if self.isValidTile(map_x+1,map_y+1) and (not movement_check or self.getTileProperty(map_x+1,map_y+1,'solid')!='true'):
+        if self.isValidTile(map_x+1,map_y+1) and (not movement_check or self.getTileProperty(map_x+1,map_y+1,'solid',1)!='true'):
             neighbors.append({'x':map_x+1,'y':map_y+1})
-        if self.isValidTile(map_x,map_y+1) and (not movement_check or self.getTileProperty(map_x,map_y+1,'solid')!='true'):
+        if self.isValidTile(map_x,map_y+1) and (not movement_check or self.getTileProperty(map_x,map_y+1,'solid',1)!='true'):
             neighbors.append({'x':map_x,'y':map_y+1})
-        if self.isValidTile(map_x-1,map_y+1) and (not movement_check or self.getTileProperty(map_x-1,map_y+1,'solid')!='true'):
+        if self.isValidTile(map_x-1,map_y+1) and (not movement_check or self.getTileProperty(map_x-1,map_y+1,'solid',1)!='true'):
             neighbors.append({'x':map_x-1,'y':map_y+1})
         return neighbors
 
@@ -462,7 +469,7 @@ class Text(Sprite):
         self.rect=self.image.get_rect()
         self.rect.x=x
         self.rect.y=y
-        self.spriteGroup=pygame.sprite.RenderUpdates(self)
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
 
 

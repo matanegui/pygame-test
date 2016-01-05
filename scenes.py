@@ -8,7 +8,7 @@ class MainScene(Scene):
 
         #Mapita  
         self.map=Tilemap()
-        self.map.loadTMXMap("data/map.tmx")
+        self.map.loadTMXMap("data/map2.tmx")
         self.add("map",self.map)
         #Enano
         self.enano=PlayableCharacter()
@@ -59,8 +59,8 @@ class PlayableCharacter(Actor):
     def __init__(self,x=0,y=0):
         Actor.__init__(self)
         self.process_events=True
-        self.loadImageFromSheet("pjs.png",0,0,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
-        self.text2 = Text("May you break free, fren.")
+        self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
+        self.text2 = Text("Saca la mano de ahi carajo!")
         self.text2.moveSprite(self.x-int(self.text2.rect.width/2),self.y-16)
         self.add("name",self.text2,self.x-int(self.text2.rect.width/2),self.y-16)
         self.eventHandlers= {"Move To Cell" : self.moveToCell}
