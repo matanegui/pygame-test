@@ -15,6 +15,7 @@ class PyGame:
 	def __init__(self):
 		#Pygame init
 		pygame.init()
+		#Posicion de la ventana
 		os.environ['SDL_VIDEO_WINDOW_POS'] = str(500) + "," + str(200)
 		self.screen = pygame.display.set_mode((960,540))
 		self.currentScene=MainScene(self.screen)
@@ -22,20 +23,20 @@ class PyGame:
 	#Main loop. Delegates everything on running scene
 	def MainLoop(self):
 	    #Main loop
-	    clock=pygame.time.Clock()
-	    loop=True
-	    FPS=30
-	    second=float(1000)
-	    while loop:
-	        delta=clock.tick(FPS)/second
-	        for event in pygame.event.get():
-	        	self.currentScene.processInput(event)
-	        	if event.type == pygame.QUIT:
-	        		sys.exit()
-	        	if event.type == pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
-	        		sys.exit()
-	        self.currentScene.update(delta)
-	        self.currentScene.draw(self.screen)
+		clock=pygame.time.Clock()
+		loop=True
+		FPS=30
+		second=float(1000)
+		while loop:
+			delta=clock.tick(FPS)/second
+			for event in pygame.event.get():
+				self.currentScene.processInput(event)
+				if event.type == pygame.QUIT:
+					sys.exit()
+				if event.type == pygame.KEYDOWN and event.key==pygame.K_ESCAPE:
+					sys.exit()
+			self.currentScene.update(delta)
+			self.currentScene.draw(self.screen)
 
 
 

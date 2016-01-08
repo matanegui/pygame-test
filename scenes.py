@@ -16,6 +16,11 @@ class MainScene(Scene):
         #Selector
         self.selector=MapCursor(self.map)
         self.add("selector",self.selector)
+        #Glyph texto
+        self.glyph = TextBox("Hola, {link miguel; {red; miguel}}",40,60)
+        self.glyph.addEntry("miguel","Miguel es un ciruja del pueblo. Es bueno, aunque le gusta demasiado la droga aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+        self.add("glyphtexto",self.glyph)
 
 class MapCursor(Sprite):
 
@@ -40,7 +45,7 @@ class MapCursor(Sprite):
             self.enabled=True
             self.changeImage(self.images['green'])
 
-    def processInput(self,event):
+    def processInput(self,event, handled):
         if event.type == pygame.MOUSEMOTION:
             evx,evy= event.pos
             map_x=evx//config.SPRITE_WIDTH
@@ -54,6 +59,7 @@ class MapCursor(Sprite):
             move_event=self.fireEvent({"name":"Move To Cell","target":["pc"],"map_x": self.map_x, "map_y":self.map_y , "mapData":self.mapData})
             if not move_event['response']:
                 self.changeImage(self.images['cross'])
+        return True
 
 class PlayableCharacter(Actor):
     def __init__(self,x=0,y=0):

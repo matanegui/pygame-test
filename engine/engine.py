@@ -5,6 +5,7 @@ import os, sys
 import pytmx
 from pytmx.util_pygame import load_pygame
 import math
+from glyph import Editor, Glyph, Macros
 
 """ 
     Helper functions for image loading.
@@ -118,7 +119,7 @@ class GameObject():
         else:
             return self.parent.getScene()
 
-    def processInput(self, event):
+    def processInput(self, event, handled):
         pass
 
     def update(self,delta):
@@ -174,12 +175,13 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
             component.offset_x=offset_x
             component.offset_y=offset_y
             component.moveSprite(offset_x,offset_y)
-        for sprite in component.spriteGroup.sprites():
-            if self.spriteGroup:    
-                self.spriteGroup.add(sprite)
-            else:
-                self.spriteGroup=pygame.sprite.LayeredDirty(sprite)
-            component.spriteGroup.remove(sprite)
+        if component.spriteGroup:                           #CHEQUEAR SI NO ES MEJOR INICIALIZAR EL SPRITEGROUP EN GAMEOBJECT!
+            for sprite in component.spriteGroup.sprites():
+                if self.spriteGroup:    
+                    self.spriteGroup.add(sprite)
+                else:
+                    self.spriteGroup=pygame.sprite.LayeredDirty(sprite)
+                component.spriteGroup.remove(sprite)
         self.components[ID]=component
         self.components[ID].parent=self
         
@@ -277,9 +279,12 @@ class Scene(Sprite):
         self.dirties=[]
     
     def processInput(self, event):
+        handled=False
         for ID, component in self.components.iteritems():
-            if component.process_input:
-                component.processInput(event)
+            if component.process_input and not handled:
+                handled=component.processInput(event,handled)
+                if handled is None:
+                    handled=False
 
     def update(self,delta):
         for ID, component in self.components.iteritems():
@@ -471,5 +476,52 @@ class Text(Sprite):
         self.rect.y=y
         self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
+"""Glyph powered textbox. Work in progress"""
+class TextBox(Sprite):
+    def __init__(self,text,x=0,y=0,width=200,height=200,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255)):
+        #Glyph variables
+        Sprite.__init__(self,x,y)
+        self.x=x
+        self.y=y
+        self.entries={}
+        Macros['red'] = ('color', (255, 0, 0))
+        self.font = pygame.font.Font(font, size)
+        self.args={'bkg'       : (30, 30, 30),'color'     : (255, 255, 255),'font'      : self.font,'spacing'   : 0}
+        self.glyph = Glyph(Rect(x, y, width, height), ncols=1, **self.args)
+        self.entries['0']=text
+        self.glyph.input(self.entries['0'])
+        self.glyph.update()
+        #Draw background and border
+        self.drawBox()
+        #Recibe input
+        self.process_input=True
 
+    def drawBox(self):
+        self.image = pygame.Surface((self.glyph.rect.width+8,self.glyph.rect.height+6))
+        self.image.fill((30, 30, 30))
+        pygame.draw.rect(self.image,(255,255,255),self.image.get_rect(),1)
+        self.image.blit(self.glyph.image,(4,2))
+        self.rect=self.image.get_rect()
+        self.rect.x,self.rect.y = self.x,self.y 
+        self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
+    def addMacro(self, name, argument):
+        Macros[name]=argument
+
+    def addEntry(self, name, text):
+        self.entries[name]=text
+
+    def updateBox(self,link):
+        self.glyph.clear()
+        self.glyph.input(self.entries[link], justify = 'justified')
+        self.glyph.update()
+        self.drawBox()
+
+    def processInput(self, event, handled):
+        if event.type == pygame.MOUSEBUTTONUP:
+            posx,posy=event.pos
+            link = self.glyph.get_collisions(event.pos)
+            if link:
+                self.updateBox(link)
+            if self.rect.collidepoint(posx,posy):
+                return True

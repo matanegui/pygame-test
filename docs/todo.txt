@@ -1,2 +1,1 @@
-- Implementar dirty rect animation
-- Integrar glyph
+- Estilizar la textbox de Glyph
