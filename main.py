@@ -19,7 +19,6 @@ class PyGame:
 		os.environ['SDL_VIDEO_WINDOW_POS'] = str(500) + "," + str(200)
 		self.screen = pygame.display.set_mode((960,540))
 		self.currentScene=MainScene(self.screen)
-
 	#Main loop. Delegates everything on running scene
 	def MainLoop(self):
 	    #Main loop

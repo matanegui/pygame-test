@@ -6,6 +6,8 @@ import pytmx
 from pytmx.util_pygame import load_pygame
 import math
 from glyph import Editor, Glyph, Macros
+import warnings
+
 
 """ 
     Helper functions for image loading.
@@ -119,7 +121,7 @@ class GameObject():
         else:
             return self.parent.getScene()
 
-    def processInput(self, event, handled):
+    def processInput(self, event):
         pass
 
     def update(self,delta):
@@ -161,9 +163,9 @@ class GameObject():
 """
 class Sprite(GameObject,pygame.sprite.DirtySprite):
     
-    def __init__(self,x=0,y=0):
+    def __init__(self,x=0,y=0,layer=0):
         pygame.sprite.DirtySprite.__init__(self)
-         
+        self.layer=layer
         GameObject.__init__(self)
         self.offset_x=0
         self.offset_y=0
@@ -178,7 +180,7 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         if component.spriteGroup:                           #CHEQUEAR SI NO ES MEJOR INICIALIZAR EL SPRITEGROUP EN GAMEOBJECT!
             for sprite in component.spriteGroup.sprites():
                 if self.spriteGroup:    
-                    self.spriteGroup.add(sprite)
+                    self.spriteGroup.add(sprite, layer=sprite.layer)
                 else:
                     self.spriteGroup=pygame.sprite.LayeredDirty(sprite)
                 component.spriteGroup.remove(sprite)
@@ -280,9 +282,11 @@ class Scene(Sprite):
     
     def processInput(self, event):
         handled=False
-        for ID, component in self.components.iteritems():
+        for ID, component in self.components.items():
+
             if component.process_input and not handled:
-                handled=component.processInput(event,handled)
+
+                handled=component.processInput(event)
                 if handled is None:
                     handled=False
 
@@ -311,6 +315,7 @@ class Tilemap(Sprite):
     def __init__(self):
         Sprite.__init__(self)
         self.tileOrder=[]
+        self.layer=1000
         self.data = None
         self.width=0
         self.height=0
@@ -427,8 +432,8 @@ class Tilemap(Sprite):
 """Actor; a game entity with attributes and moving and interactions capabilities"""
 class Actor(Sprite):
     
-    def __init__(self):
-        Sprite.__init__(self)
+    def __init__(self,x=0,y=0):
+        Sprite.__init__(self,x,y)
         self.process_input=False
         self.process_update=True
         self.pos_x=0;
@@ -463,13 +468,16 @@ class Actor(Sprite):
 """A class for the instancing and rendering of text"""
 class Text(Sprite):
     
-    def __init__(self,text,x=0,y=0,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255)):
-        Sprite.__init__(self,x,y)
+    def __init__(self,text,x=0,y=0,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255), outlined=False, bold=False):
+        Sprite.__init__(self,x,y,layer=10)
         #texto a renderizar
         self.font = pygame.font.Font(font, size)
-        self.font.set_bold(True)
-        self.text=SpriteUtils.textOutline(self.font, text, rgb, (1,1,1))
-        #self.text = self.font.render(text, True, rgb)
+        if bold:
+            self.font.set_bold(True)
+        if outlined:
+            self.text=SpriteUtils.textOutline(self.font, text, rgb, (1,1,1))
+        else:
+            self.text = self.font.render(text, True, rgb)
         self.image = self.text
         self.rect=self.image.get_rect()
         self.rect.x=x
@@ -487,20 +495,35 @@ class TextBox(Sprite):
         Macros['red'] = ('color', (255, 0, 0))
         self.font = pygame.font.Font(font, size)
         self.args={'bkg'       : (30, 30, 30),'color'     : (255, 255, 255),'font'      : self.font,'spacing'   : 0}
-        self.glyph = Glyph(Rect(x, y, width, height), ncols=1, **self.args)
+        height=self.heightCalculation(text)
+        self.glyph = Glyph(Rect(x+10, y+6, width, height), ncols=1, **self.args)
         self.entries['0']=text
         self.glyph.input(self.entries['0'])
         self.glyph.update()
         #Draw background and border
         self.drawBox()
-        #Recibe input
+        #Process input for link processing
         self.process_input=True
 
+    def heightCalculation(self,text):
+        words_per_line=6
+        lines=0
+        total_words = len(text.split())
+        print (total_words)
+        height = 16 * (total_words/words_per_line)
+        if (height<16):
+            height=16
+        return height
+
+
     def drawBox(self):
-        self.image = pygame.Surface((self.glyph.rect.width+8,self.glyph.rect.height+6))
+        self.image = pygame.Surface((self.glyph.rect.width+20,self.glyph.rect.height+12))
         self.image.fill((30, 30, 30))
         pygame.draw.rect(self.image,(255,255,255),self.image.get_rect(),1)
-        self.image.blit(self.glyph.image,(4,2))
+        inner_rect=self.image.get_rect()
+        inner_rect.x, inner_rect.y, inner_rect.width, inner_rect.height= inner_rect.x+4, inner_rect.y+4, inner_rect.width-8, inner_rect.height-8
+        pygame.draw.rect(self.image,(255,255,255),inner_rect,1)
+        self.image.blit(self.glyph.image,(10,6))
         self.rect=self.image.get_rect()
         self.rect.x,self.rect.y = self.x,self.y 
         self.spriteGroup=pygame.sprite.LayeredDirty(self)
@@ -511,17 +534,14 @@ class TextBox(Sprite):
     def addEntry(self, name, text):
         self.entries[name]=text
 
-    def updateBox(self,link):
-        self.glyph.clear()
-        self.glyph.input(self.entries[link], justify = 'justified')
-        self.glyph.update()
-        self.drawBox()
-
-    def processInput(self, event, handled):
-        if event.type == pygame.MOUSEBUTTONUP:
+    def processInput(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
             posx,posy=event.pos
             link = self.glyph.get_collisions(event.pos)
             if link:
-                self.updateBox(link)
+                self.glyph.clear()
+                self.glyph.input(self.entries[link], justify = 'justified') 
+                self.glyph.update()
+                self.drawBox()
             if self.rect.collidepoint(posx,posy):
                 return True
