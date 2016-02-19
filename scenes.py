@@ -1,5 +1,8 @@
 import pygame
-from engine.engine import *
+from engine import *
+from engine.gui import *
+from engine.map import *
+from engine.actors import *
 
 class MainScene(Scene):
 
@@ -14,10 +17,10 @@ class MainScene(Scene):
         self.selector=MapCursor(self.map)
         self.add("selector",self.selector)
         #Enano
-        self.enano=PlayableCharacter()
+        self.enano=Character("Pituto","white")
         self.add("pc",self.enano)
         #npc
-        self.npc=NPC()
+        self.npc=Character("Gola Gola","red")
         self.npc.moveSprite(24*10,32*10)
         self.add("npc",self.npc)
         
@@ -56,39 +59,7 @@ class MapCursor(Sprite):
                 self.moveSprite(self.map_x*config.SPRITE_WIDTH,self.map_y*config.SPRITE_HEIGHT)
                 self.switchEnabled(self.mapData.getTileProperty(self.map_x, self.map_y,'solid'))  
         if event.type == pygame.MOUSEBUTTONDOWN and self.enabled:
-            move_event=self.fireEvent({"name":"Move To Cell","target":["pc"],"map_x": self.map_x, "map_y":self.map_y , "mapData":self.mapData})
-            if not move_event['response']:
+            move_able=self.getScene().getComponent("pc").moveToCell(self.map_x,self.map_y,self.mapData)
+            if not move_able:
                 self.changeImage(self.images['cross'])
             return True
-
-class PlayableCharacter(Actor):
-    def __init__(self,x=0,y=0):
-        Actor.__init__(self)
-        self.process_events=True
-        self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
-        self.char_name = Text("Coquito",bold=True,outlined=True)
-        self.char_name.moveSprite(self.x-int(self.rect.width/2),self.y-16)
-        self.add("name",self.char_name,self.x-int(self.rect.width/2),self.y-16)
-        self.eventHandlers= {"Move To Cell" : self.moveToCell}
-
-    def moveToCell(self,event):
-        move_able=self.moveTo(event['map_x'], event['map_y'], event['mapData'])
-        event['response']=move_able
-        return event
-
-class NPC(Actor):
-    def __init__(self,x=0,y=0):
-        Actor.__init__(self,x,y)
-        self.process_events=True
-        self.loadImageFromSheet("pjs.png",0,1,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
-        self.char_name = Text("Guardia",bold=True,outlined=True, rgb=(0,255,0))
-        self.char_name.moveSprite(self.x-int(self.rect.width/2),self.y-16)
-        self.add("name",self.char_name,self.x-int(self.rect.width/2),self.y-16)
-        self.process_input=True
-
-    def processInput(self,event):
-        if event.type == pygame.MOUSEBUTTONDOWN: #click
-            evx,evy= event.pos
-            if self.rect.collidepoint(evx,evy):
-                print("chirimbolo")
-                return True

@@ -2,10 +2,7 @@ import pygame
 from pygame.locals import *
 import config
 import os, sys
-import pytmx
-from pytmx.util_pygame import load_pygame
 import math
-from glyph import Editor, Glyph, Macros
 import warnings
 
 
@@ -13,7 +10,8 @@ import warnings
     Helper functions for image loading.
 """
 class SpriteUtils:
-    #Helper function de carga
+
+    #Load sprite from file
     @staticmethod
     def loadImage(name, colorkey=None):
             fullname = os.path.join('images', name)
@@ -29,6 +27,7 @@ class SpriteUtils:
                 image.set_colorkey(colorkey, RLEACCEL)
             return image
 
+    #Load sprite from spritesheet
     @staticmethod
     def loadSpriteSheet(name, width, height, colorkey=-1):
         fullname = os.path.join('images', name)
@@ -47,7 +46,8 @@ class SpriteUtils:
                 rect = (tile_x*width, tile_y*height, width, height)
                 line.append(image.subsurface(rect))
         return tile_table
-
+    
+    #Draw hollow text
     @staticmethod
     def textHollow(font, message, fontcolor):
         notcolor = [c^0xFF for c in fontcolor]
@@ -66,6 +66,7 @@ class SpriteUtils:
         img.set_colorkey(notcolor)
         return img
 
+    #Draw outlined text
     @staticmethod
     def textOutline(font, message, fontcolor, outlinecolor):
         base = font.render(message, 0, fontcolor)
@@ -303,245 +304,3 @@ class Scene(Sprite):
 
     def switchToScene(self, next_scene):
         self.next = next_scene
-
-"""Basic tile object"""
-class Tile(Sprite):
-    def __init__(self):
-        Sprite.__init__(self)
-
-"""Basic tilemap, TMX loaded, pytmx powered"""
-class Tilemap(Sprite):
-
-    def __init__(self):
-        Sprite.__init__(self)
-        self.tileOrder=[]
-        self.layer=1000
-        self.data = None
-        self.width=0
-        self.height=0
-
-    #Full TMX map loading (includes tile properties)
-    def loadTMXMap(self,path):
-        self.data = load_pygame(path)
-        #definir mapita
-        self.width=self.data.width
-        self.height=self.data.height
-        layersAmount=len(self.data.layers)
-        for idz in range(layersAmount):
-            for idx, idy, image in self.data.layers[idz].tiles():
-                    tile = Tile()
-                    tile.renderImage(image.convert(),pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight))
-                    tileID="x"+str(idx)+"y"+str(idy)+"z"+str(idz)
-                    self.tileOrder.append(tileID)
-                    self.add(tileID,tile)
-
-    #Returns property/value dict of specified tile
-    def getTileProperties(self,x,y,z=0):
-        if (x>=0 and x<self.width and y>=0 and y<self.height):
-            return self.data.get_tile_properties(x, y, layer)
-        else:
-            return None
-
-    #Return the value of a specified tile property; None if there is no such property
-    def getTileProperty(self,x,y,prop,z=0):
-        if (x>=0 and x<self.width and y>=0 and y<self.height):
-            tileData=self.data.get_tile_properties(x, y, z)
-            if tileData is None or not prop in tileData:
-                return None
-            else:
-                return tileData[prop]
-
-    #True if x,y pair is a valid map position
-    def isValidTile(self,x,y):
-        if (x>=0 and x<self.width and y>=0 and y<self.height):
-            return True
-        else:
-            return False
-
-    #Gets valid neighbor position for a certain tile
-    def getNeighbors(self,map_x,map_y,movement_check=False):
-        neighbors=[]
-        if self.isValidTile(map_x-1,map_y) and (not movement_check or self.getTileProperty(map_x-1,map_y,'solid',1)!='true'):
-            neighbors.append({'x':map_x-1,'y':map_y})
-        if self.isValidTile(map_x-1,map_y-1) and (not movement_check or self.getTileProperty(map_x-1,map_y-1,'solid',1)!='true'):
-            neighbors.append({'x':map_x-1,'y':map_y-1})
-        if self.isValidTile(map_x,map_y-1) and (not movement_check or self.getTileProperty(map_x,map_y-1,'solid',1)!='true'):
-            neighbors.append({'x':map_x,'y':map_y-1})
-        if self.isValidTile(map_x+1,map_y-1) and (not movement_check or self.getTileProperty(map_x+1,map_y-1,'solid',1)!='true'):
-            neighbors.append({'x':map_x+1,'y':map_y-1})
-        if self.isValidTile(map_x+1,map_y) and (not movement_check or self.getTileProperty(map_x+1,map_y,'solid',1)!='true'):
-            neighbors.append({'x':map_x+1,'y':map_y})
-        if self.isValidTile(map_x+1,map_y+1) and (not movement_check or self.getTileProperty(map_x+1,map_y+1,'solid',1)!='true'):
-            neighbors.append({'x':map_x+1,'y':map_y+1})
-        if self.isValidTile(map_x,map_y+1) and (not movement_check or self.getTileProperty(map_x,map_y+1,'solid',1)!='true'):
-            neighbors.append({'x':map_x,'y':map_y+1})
-        if self.isValidTile(map_x-1,map_y+1) and (not movement_check or self.getTileProperty(map_x-1,map_y+1,'solid',1)!='true'):
-            neighbors.append({'x':map_x-1,'y':map_y+1})
-        return neighbors
-
-    #Mahattan distance between two points, used as heuristic in A* pathfinding
-    def getManhattanDistance(self,current,goal):
-        return abs(goal['x'] - current['x']) + abs(goal['y'] - current['y'])
-
-    #A* pathfinding. Returns list of {x,y} pairs specifying best path
-    #Actors can move using such lists with the MoveTo function.
-    def AStarPathfinding(self,start_x,start_y,map_x,map_y):
-        start={'x':start_x,'y':start_y}
-        startCode="x"+str(start['x'])+"y"+str(start['y'])
-        goal={'x':map_x,'y':map_y}
-        frontier = []
-        frontier.append({'element':start,'priority':0})
-        came_from={}
-        cost_so_far={}
-        came_from[startCode]=start
-        cost_so_far[startCode]=0
-        while frontier:
-            frontier.sort(key=lambda k: k['priority'])
-            current = frontier.pop(0)['element']
-            currentCode="x"+str(current['x'])+"y"+str(current['y'])
-            
-            if (current['x']==goal['x'] and current['y']==goal['y']):
-                break
-
-            for next in self.getNeighbors(current['x'],current['y'],True):
-                nextCode="x"+str(next['x'])+"y"+str(next['y'])
-                new_cost=cost_so_far[currentCode]+1
-                if not nextCode in cost_so_far or (new_cost < cost_so_far[nextCode]):
-                    cost_so_far[nextCode]=new_cost
-                    priority = new_cost + self.getManhattanDistance(next,goal)
-                    frontier.append({'element':next,'priority':priority})
-                    came_from[nextCode]=current
-        #reconstruct path
-        actual = goal
-        path = [actual]
-        while not (actual['x']==start['x'] and actual['y']==start['y']):
-            currentCode="x"+str(actual['x'])+"y"+str(actual['y'])
-            try:
-                actual=came_from[currentCode]
-            except KeyError:
-                break
-            path.append(actual)
-        path.reverse()
-        path.pop(0)
-        return path
-
-    def draw(self,screen):
-        for ID in self.tileOrder:
-            self.components[ID].draw(screen)  
-
-"""Actor; a game entity with attributes and moving and interactions capabilities"""
-class Actor(Sprite):
-    
-    def __init__(self,x=0,y=0):
-        Sprite.__init__(self,x,y)
-        self.process_input=False
-        self.process_update=True
-        self.pos_x=0;
-        self.pos_y=0;
-        self.pos_z=1
-        self.last_move_time=0.0
-        self.speed=0.05  #Step delay
-        self.path=[]
-
-    def update(self,delta):
-        if len(self.path)!=0:
-            if (self.last_move_time>=self.speed):
-                step=self.path.pop(0)
-                self.last_move_time=0.0
-                self.moveSprite(step['x']*config.SPRITE_WIDTH,step['y']*config.SPRITE_HEIGHT)
-                self.pos_x=step['x']
-                self.pos_y=step['y']
-                self.fireEvent({"name": "Step Over", "target": ["map","x"+str(step['x'])+"y"+str(step['y'])+"z0"]})
-            else:
-                self.last_move_time+=delta
-
-    #Movement function following a path; returns True if movement is possible, False otherwise
-    def moveTo(self,map_x,map_y,mapData):
-        self.path=mapData.AStarPathfinding(self.pos_x,self.pos_y,map_x,map_y)
-        self.dest_x=map_x*mapData.data.tilewidth
-        self.dest_y=map_y*mapData.data.tileheight
-        if self.path:
-            return True
-        else:
-            return False
-
-"""A class for the instancing and rendering of text"""
-class Text(Sprite):
-    
-    def __init__(self,text,x=0,y=0,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255), outlined=False, bold=False):
-        Sprite.__init__(self,x,y,layer=10)
-        #texto a renderizar
-        self.font = pygame.font.Font(font, size)
-        if bold:
-            self.font.set_bold(True)
-        if outlined:
-            self.text=SpriteUtils.textOutline(self.font, text, rgb, (1,1,1))
-        else:
-            self.text = self.font.render(text, True, rgb)
-        self.image = self.text
-        self.rect=self.image.get_rect()
-        self.rect.x=x
-        self.rect.y=y
-        self.spriteGroup=pygame.sprite.LayeredDirty(self)
-
-"""Glyph powered textbox. Work in progress"""
-class TextBox(Sprite):
-    def __init__(self,text,x=0,y=0,width=200,height=200,font=config.DEFAULT_FONT_PATH,size=config.DEFAULT_FONT_SIZE, rgb=(255,255,255)):
-        #Glyph variables
-        Sprite.__init__(self,x,y)
-        self.x=x
-        self.y=y
-        self.entries={}
-        Macros['red'] = ('color', (255, 0, 0))
-        self.font = pygame.font.Font(font, size)
-        self.args={'bkg'       : (30, 30, 30),'color'     : (255, 255, 255),'font'      : self.font,'spacing'   : 0}
-        height=self.heightCalculation(text)
-        self.glyph = Glyph(Rect(x+10, y+6, width, height), ncols=1, **self.args)
-        self.entries['0']=text
-        self.glyph.input(self.entries['0'])
-        self.glyph.update()
-        #Draw background and border
-        self.drawBox()
-        #Process input for link processing
-        self.process_input=True
-
-    def heightCalculation(self,text):
-        words_per_line=6
-        lines=0
-        total_words = len(text.split())
-        print (total_words)
-        height = 16 * (total_words/words_per_line)
-        if (height<16):
-            height=16
-        return height
-
-
-    def drawBox(self):
-        self.image = pygame.Surface((self.glyph.rect.width+20,self.glyph.rect.height+12))
-        self.image.fill((30, 30, 30))
-        pygame.draw.rect(self.image,(255,255,255),self.image.get_rect(),1)
-        inner_rect=self.image.get_rect()
-        inner_rect.x, inner_rect.y, inner_rect.width, inner_rect.height= inner_rect.x+4, inner_rect.y+4, inner_rect.width-8, inner_rect.height-8
-        pygame.draw.rect(self.image,(255,255,255),inner_rect,1)
-        self.image.blit(self.glyph.image,(10,6))
-        self.rect=self.image.get_rect()
-        self.rect.x,self.rect.y = self.x,self.y 
-        self.spriteGroup=pygame.sprite.LayeredDirty(self)
-
-    def addMacro(self, name, argument):
-        Macros[name]=argument
-
-    def addEntry(self, name, text):
-        self.entries[name]=text
-
-    def processInput(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            posx,posy=event.pos
-            link = self.glyph.get_collisions(event.pos)
-            if link:
-                self.glyph.clear()
-                self.glyph.input(self.entries[link], justify = 'justified') 
-                self.glyph.update()
-                self.drawBox()
-            if self.rect.collidepoint(posx,posy):
-                return True
