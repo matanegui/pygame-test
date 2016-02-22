@@ -13,7 +13,7 @@ class Tilemap(Sprite):
     def __init__(self):
         Sprite.__init__(self)
         self.tileOrder=[]
-        self.layer=1000
+        self.layer=10
         self.data = None
         self.width=0
         self.height=0
@@ -124,5 +124,4 @@ class Tilemap(Sprite):
         return path
 
     def draw(self,screen):
-        for ID in self.tileOrder:
-            self.components[ID].draw(screen)  
+        pass

@@ -11,7 +11,7 @@ class MainScene(Scene):
 
         #Mapita  
         self.map=Tilemap()
-        self.map.loadTMXMap("data/map2.tmx")
+        self.map.loadTMXMap("data/map3.tmx")
         self.add("map",self.map)
         #Selector
         self.selector=MapCursor(self.map)
