@@ -4,21 +4,22 @@ import os, sys
 import pygame
 
 
-from scenes import MainScene
+from scenes import GameScene
 
 if not pygame.font: print ('Warning, fonts disabled')
 if not pygame.mixer: print ('Warning, sound disabled')
 
 #Juego
 class PyGame:
-	
+
 	def __init__(self):
 		#Pygame init
 		pygame.init()
 		#Posicion de la ventana
 		os.environ['SDL_VIDEO_WINDOW_POS'] = str(500) + "," + str(200)
-		self.screen = pygame.display.set_mode((960,540))
-		self.currentScene=MainScene(self.screen)
+		self.screen = pygame.display.set_mode((800,600))
+		self.currentScene=GameScene(self.screen)
+
 	#Main loop. Delegates everything on running scene
 	def MainLoop(self):
 	    #Main loop

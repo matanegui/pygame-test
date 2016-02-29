@@ -4,7 +4,7 @@ import config
 
 """Actor; a game entity with attributes and moving and interactions capabilities"""
 class Actor(Sprite):
-    
+
     def __init__(self,x=0,y=0):
         Sprite.__init__(self,x,y)
         self.process_input=False
@@ -21,7 +21,8 @@ class Actor(Sprite):
             if (self.last_move_time>=self.speed):
                 step=self.path.pop(0)
                 self.last_move_time=0.0
-                self.moveSprite(step['x']*config.SPRITE_WIDTH,step['y']*config.SPRITE_HEIGHT)
+                mx,my=self.getScene().getComponent("map").mapCoordinatesToPosition(step['x'],step['y'])
+                self.moveSprite(mx,my)
                 self.pos_x=step['x']
                 self.pos_y=step['y']
                 self.fireEvent({"name": "Step Over", "target": ["map","x"+str(step['x'])+"y"+str(step['y'])+"z0"]})
@@ -31,12 +32,16 @@ class Actor(Sprite):
     #Movement function following a path; returns True if movement is possible, False otherwise
     def moveTo(self,map_x,map_y,mapData):
         self.path=mapData.AStarPathfinding(self.pos_x,self.pos_y,map_x,map_y)
-        self.dest_x=map_x*mapData.data.tilewidth
-        self.dest_y=map_y*mapData.data.tileheight
+        dx,dy= mapData.mapCoordinatesToPosition(map_x,map_y)
+        self.dest_x=dx
+        self.dest_y=dy
         if self.path:
             return True
         else:
             return False
+
+    def moveToCell(self,map_x,map_y,mapData):
+        return self.moveTo(map_x,map_y, mapData)
 
     #Color an actor
     def colorSprite(self, colorName):
@@ -52,20 +57,30 @@ class Actor(Sprite):
                         cell[0],cell[1],cell[2]=colors["secondary"][0],colors["secondary"][1],colors["secondary"][2]
 
 
+    def positionInMap(self,map_x,map_y):
+        self.pos_x=map_x
+        self.pos_y=map_y
+        mx,my=self.getScene().getComponent("map").mapCoordinatesToPosition(map_x,map_y)
+        self.moveSprite(mx,my)
+
+
 class Character(Actor):
     def __init__(self,name,color,x=0,y=0):
-        Actor.__init__(self)
+        Actor.__init__(self,x,y)
+        #Character attributes
+        self.action_points=4
+        self.health_points=10
+        self.attack_type="Physical"
+        self.damage=2
+        self.color=color
+        #Logic/View attributes
         self.process_events=True
         self.loadImageFromSheet("pjs.png",0,2,config.SPRITE_WIDTH,config.SPRITE_HEIGHT)
-        self.char_name = Text(name,bold=True,outlined=True)
-        self.char_name.moveSprite(self.x+int(self.rect.width/2)-int(self.char_name.rect.width/2),self.y-16)
-        self.add("name",self.char_name,+int(self.rect.width/2)-int(self.char_name.rect.width/2),self.y-16)
+        self.char_name = Text(name,x=0,y=0,bold=True,outlined=True)
+        self.add("name",self.char_name,int(self.rect.width/2)-int(self.char_name.rect.width/2),-16)
         self.colorSprite(color)
         self.process_input=True
-        
 
-    def moveToCell(self,map_x,map_y,mapData):
-        return self.moveTo(map_x,map_y, mapData)
 
     def processInput(self,event):
         if event.type == pygame.MOUSEBUTTONDOWN: #click

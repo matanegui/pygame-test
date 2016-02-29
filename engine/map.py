@@ -10,13 +10,14 @@ class Tile(Sprite):
 """Basic tilemap, TMX loaded, pytmx powered"""
 class Tilemap(Sprite):
 
-    def __init__(self):
-        Sprite.__init__(self)
+    def __init__(self, x=0, y=0):
+        Sprite.__init__(self,x,y)
         self.tileOrder=[]
         self.layer=10
         self.data = None
         self.width=0
         self.height=0
+
 
     #Full TMX map loading (includes tile properties)
     def loadTMXMap(self,path):
@@ -28,10 +29,11 @@ class Tilemap(Sprite):
         for idz in range(layersAmount):
             for idx, idy, image in self.data.layers[idz].tiles():
                     tile = Tile()
-                    tile.renderImage(image.convert(),pygame.Rect(idx*self.data.tilewidth,idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight))
+                    tile.renderImage(image.convert(),pygame.Rect(self.x+idx*self.data.tilewidth,self.y+idy*self.data.tileheight,self.data.tilewidth,self.data.tileheight))
                     tileID="x"+str(idx)+"y"+str(idy)+"z"+str(idz)
                     self.tileOrder.append(tileID)
                     self.add(tileID,tile)
+        self.rect=pygame.Rect(self.x,self.y,self.width*self.data.tilewidth,self.height*self.data.tileheight)
 
     #Returns property/value dict of specified tile
     def getTileProperties(self,x,y,z=0):
@@ -122,6 +124,16 @@ class Tilemap(Sprite):
         path.reverse()
         path.pop(0)
         return path
+
+    def positionToMapCoordinates(self,x,y):
+        rx,ry=x-self.x,y-self.y
+        map_x=rx//self.data.tilewidth
+        map_y=ry//self.data.tileheight
+        return map_x, map_y
+
+    def mapCoordinatesToPosition(self,map_x,map_y):
+        x,y= self.x+ map_x*self.data.tilewidth,self.y+map_y*self.data.tileheight
+        return x,y
 
     def draw(self,screen):
         pass

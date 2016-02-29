@@ -6,7 +6,7 @@ import math
 import warnings
 
 
-""" 
+"""
     Helper functions for image loading.
 """
 class SpriteUtils:
@@ -38,7 +38,7 @@ class SpriteUtils:
                 image.set_colorkey(colorkey, RLEACCEL)
         image_width, image_height = image.get_size()
         tile_table = []
-        
+
         for tile_y in range(0, image_height//height):
             line = []
             tile_table.append(line)
@@ -46,7 +46,7 @@ class SpriteUtils:
                 rect = (tile_x*width, tile_y*height, width, height)
                 line.append(image.subsurface(rect))
         return tile_table
-    
+
     #Draw hollow text
     @staticmethod
     def textHollow(font, message, fontcolor):
@@ -77,7 +77,7 @@ class SpriteUtils:
         img.set_colorkey(0)
         return img
 
-""" 
+"""
     Basic event specification class.
 """
 class Event():
@@ -86,14 +86,14 @@ class Event():
         self.target=target
         self.parameters=parameters
 
-""" 
+"""
     Basic GameObject structure.
     -Support for tree-like GameObject hierarchy
     -Overridable input processing and logic updating methods.
     -Support for event firing and handling along its hierarchy.
 """
 class GameObject():
-    
+
     def __init__(self,x=0,y=0):
         self.components = {}
         self.attributes={}
@@ -103,15 +103,22 @@ class GameObject():
         self.process_update=False
         self.process_events=False
         self.eventHandlers={}
-    
+
     def add(self, ID, component, offset_x=0, offset_y=0):
         component.offset_x=offset_x
         component.offset_y=offset_y
         self.components[ID]=component;
         self.components[ID].parent=self
 
+    def remove(self,ID):
+        self.components.pop(ID)
+
     def getComponent(self,ID):
-        return self.components[ID]
+        try:
+            component=self.components[ID]
+        except KeyError, e:
+            component=None
+        return component
 
     def getParent(self):
         return self.parent
@@ -136,14 +143,14 @@ class GameObject():
         if scene:
             event=scene.sendEvent(event)
         return event
-            
+
 
     def sendEvent(self,event):
         #no target means this is the wanted Game Object
         if not event['target']:
             for ID, component in self.components.iteritems():
                 event=component.sendEvent(event)
-            event=self.handleEvent(event)     
+            event=self.handleEvent(event)
         else:
             current_target=self.components[event['target'][0]]
             if current_target:
@@ -159,11 +166,11 @@ class GameObject():
                     event=handler(event)
         return event
 
-""" 
+"""
     A Sprite class; extends Game Object and pygame DirtySprite, adding drawing capabilities to the basic GO.
 """
 class Sprite(GameObject,pygame.sprite.DirtySprite):
-    
+
     def __init__(self,x=0,y=0,layer=0):
         pygame.sprite.DirtySprite.__init__(self)
         self.layer=layer
@@ -172,22 +179,32 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.offset_y=0
         self.x=x
         self.y=y
-    
+        self.rect = pygame.Rect(self.x,self.y,0,0)
+
     def add(self, ID, component, offset_x=0, offset_y=0):
         if (offset_x!=0 or offset_y!=0):
             component.offset_x=offset_x
             component.offset_y=offset_y
-            component.moveSprite(offset_x,offset_y)
+            component.moveSprite(self.x+offset_x,self.y+offset_y)
         if component.spriteGroup:                           #CHEQUEAR SI NO ES MEJOR INICIALIZAR EL SPRITEGROUP EN GAMEOBJECT!
             for sprite in component.spriteGroup.sprites():
-                if self.spriteGroup:    
+                if self.spriteGroup:
                     self.spriteGroup.add(sprite, layer=sprite.layer)
                 else:
                     self.spriteGroup=pygame.sprite.LayeredDirty(sprite)
-                component.spriteGroup.remove(sprite)
+                #component.spriteGroup.remove(sprite)
         self.components[ID]=component
         self.components[ID].parent=self
-        
+
+    def remove(self,ID):
+        component = self.components[ID]
+        if component.spriteGroup:
+            for sprite in component.spriteGroup.sprites():
+                self.spriteGroup.remove(sprite)
+        self.components.pop(ID)
+
+
+
     def loadImage(self,path):
         self.image = SpriteUtils.loadImage(path)
         self.rect=self.image.get_rect()
@@ -214,7 +231,7 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
     def loadImageFromSheet(self,path,sheet_x,sheet_y,width,height):
         tiles=SpriteUtils.loadSpriteSheet(path,width, height)
         self.image=(tiles[sheet_x][sheet_y])
-        self.rect=pygame.Rect(self.x*width,self.y*height,width,height)
+        self.rect=pygame.Rect(self.x,self.y,width,height)
         self.spriteGroup=pygame.sprite.LayeredDirty(self)
 
     def moveSprite(self,x,y):
@@ -230,7 +247,7 @@ class Sprite(GameObject,pygame.sprite.DirtySprite):
         self.x+=int(x)
         self.y+=int(y)
         self.rect.x+=int(x)
-        self.rect.y+=int(y)     
+        self.rect.y+=int(y)
         self.dirty=1
         for ID, component in self.components.iteritems():
             component.moveSpriteRelative(x,y)
@@ -251,25 +268,33 @@ class GameObjectFactory():
 
     #Get coded class by name
     @staticmethod
-    def getClass(classname):
+    def getClassOriginal(classname):
         for path in config.COMPONENT_MODULES:
             parts = path.split('.')
             module = ".".join(parts[:-1])
             m = __import__( module )
             for comp in parts[1:]:
+                if m is not None:
+                    try:
+                        m = getattr(m, comp)
+                    except AttributeError:
+                        pass
+            if m is not None:
                 try:
                     m = getattr(m, classname)
                     return m
                 except AttributeError:
-                    pass          
+                    pass
 
     #Instantiate class with extending parameter
     @staticmethod
-    def getGameObject(classname,base_class='GameObject',args={}):
-       ParentClass=GameObjectFactory.getClass(base_class)
-       Class=type(classname, (ParentClass,), args)
-       return Class()
-
+    def getGameObject(classname,base_class='GameObject',args={}, params=[]):
+       ParentClass=GameObjectFactory.getClassOriginal(base_class)
+       if ParentClass is not None:
+           Class=type(classname, (ParentClass,), args)
+           return Class(*params)
+       else:
+           return None
 
 
 """Basic Scene structure; contains methods for drawing, updating and input handling."""
@@ -280,13 +305,11 @@ class Scene(Sprite):
         self.background = self.background.convert()
         self.background.fill((39,40,34))
         self.dirties=[]
-    
+
     def processInput(self, event):
         handled=False
         for ID, component in self.components.items():
-
             if component.process_input and not handled:
-
                 handled=component.processInput(event)
                 if handled is None:
                     handled=False
@@ -299,7 +322,7 @@ class Scene(Sprite):
     def draw(self, screen):
         #Default: components render
         self.spriteGroup.clear(screen,self.background)
-        rects=self.spriteGroup.draw(screen) 
+        rects=self.spriteGroup.draw(screen)
         pygame.display.update(rects)
 
     def switchToScene(self, next_scene):
